@@ -1,6 +1,6 @@
 # Zadanie k predmetu Vizuálne systémy (individuálne)
 
-Úloha 1 (40 bodov):
+## Úloha 1 (40 bodov):
 
 Navrhnite a naprogramujte program (aplikáciu), ktorá bude schopná detegovať chodník pomocou vizuálneho systému (kamery), za rôznych podmienok okolia (osvetlenie). Aplikácia určí stred chodníka a smer ktorým by sa mal robot pohybovať aby sa udržiaval v strede chodníka. Predpokladá sa umiestnenie kamery v strede prednéj časti robota.
 
@@ -10,7 +10,7 @@ Programovacie prostredia: Microsoft Visual Studio, Android Studio, Matlab,...
 
 
 
-Úloha 2 (10 bodov):
+## Úloha 2 (10 bodov):
 
 Naprogramujte algoritmus detekcie hrán LoG operátorom, pričom ako vstup použijete
 obrázok vo formáte .bmp alebo . jpg.
