@@ -3,7 +3,6 @@ import math
 import numpy
 import cv2
 
-
 class PathDetector:
     def __init__(self):
         self.initialized = 0
@@ -15,8 +14,20 @@ class PathDetector:
         self.K = 10  # number of dominant colors to extract in initialization
         self.offset_lower = [30, 40, 30]  # [H,S,V] negative offset
         self.offset_upper = [30, 40, 30]  # [H,S,V] positive offset
+        self.field_of_vision_mask_init = False
 
     def initialize(self, img):
+        # Create field of vision mask for find_path_center
+        self.field_of_vision_x0 = 0
+        self.field_of_vision_y0 = int(img.shape[0]/2)
+        self.field_of_vision_mask = self.create_field_of_vision_mask(
+            ROWS=img.shape[0], COLS=img.shape[1], 
+            lower_width=img.shape[1], upper_width=img.shape[1]/2, height=img.shape[0]/2, 
+            x0=self.field_of_vision_x0, y0=self.field_of_vision_y0
+        )
+        ret, thresh = cv2.threshold(self.field_of_vision_mask, 0, 255, 0)
+        self.contours_field_of_vision, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
         # filtrate image
         img = cv2.medianBlur(img, 3)
 
@@ -31,7 +42,7 @@ class PathDetector:
         # find K dominant colors of the extracted area, to determine the color of the pathway
         compactness, labels, centers = cv2.kmeans(K=self.K,
                                                   flags = cv2.KMEANS_RANDOM_CENTERS,
-                                                  attempts=10,
+                                                  attempts=1,
                                                   bestLabels=None,
                                                   data=centerIm,
                                                   criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 3, 1.0))
@@ -86,26 +97,62 @@ class PathDetector:
             mask_comb = cv2.bitwise_or(mask_comb, mask_array[i])
 
         return mask_comb
+    
+    def create_field_of_vision_mask(self, ROWS, COLS, lower_width, upper_width, height, x0, y0):
+        y = lambda x, x0, y0, k : (k*(x - x0) + y0)
+        mask = numpy.zeros((ROWS, COLS), dtype='uint8')
+    
+        k1 = 2*height/(lower_width - upper_width);
+        x01 = lower_width + x0;
+        y01 = ROWS - 1 - y0;
+    
+        k2 = -2*height/(lower_width  - upper_width);
+        x02 = x0;
+        y02 = ROWS - 1 - y0;
+    
+        for j in range(ROWS):
+            for i in range(COLS):
+                mask[j][i] = ((j >= y(i, x01, y01, k1)) and j >= y(i, x02, y02, k2) and (j >= y01 - height) and (j <= y01))
+        
+        return mask
 
     def find_path_center(self, img, mask_comb):
+        saturation = lambda u, lower, upper : min(upper, max(lower, u))
+        mask_comb = mask_comb*self.field_of_vision_mask
+        
         # calculate centre of the sidewalk
         ROWS = img.shape[0]
         COLS = img.shape[1]
+        
+        x0 = self.field_of_vision_x0
+        y0 = self.field_of_vision_y0
+        
         N = 3
-        dN = int(ROWS / (2 * N))
-        cX = numpy.zeros(N + 1, dtype=int)
-        cY = numpy.zeros(N + 1, dtype=int)
+        dN = int(saturation((ROWS - y0), 0, ROWS) / N)
+        
+        x = numpy.zeros(N + 1, dtype=int)
+        y = numpy.zeros(N + 1, dtype=int)
 
-        cX[0] = int(COLS / 2)
-        cY[0] = ROWS
-
-        for n in range(N):
-            M = cv2.moments(mask_comb[ROWS - (n + 1) * dN:ROWS - n * dN, :])
-            cX[n + 1] = int(M["m10"] / M["m00"])
-            cY[n + 1] = int(M["m01"] / M["m00"]) + ROWS - (n + 1) * dN
+        x[0] = int(COLS / 2)
+        y[0] = ROWS
 
         for n in range(N):
-            cv2.line(img, (cX[n], cY[n]), (cX[n + 1], cY[n + 1]), (0, 255, 0), 5)
+            M = cv2.moments(mask_comb[ROWS - y0 - (n + 1) * dN:ROWS - y0 - n * dN, :])
+            
+            if (M["m00"] == 0):
+                x[n + 1] = x[n]
+                y[n + 1] = y[n]
+            else:
+                x[n + 1] = int(M["m10"] / M["m00"])
+                y[n + 1] = int(M["m01"] / M["m00"]) + ROWS - y0 - (n + 1) * dN
+            
+        for n in range(N):
+            cv2.line(img, (x[n], y[n]), (x[n + 1], y[n + 1]), (0, 255, 0), 5)
+
+        # M = cv2.moments(mask_comb)
+        # x[1] = int(M["m10"] / M["m00"])
+        # y[1] = int(M["m01"] / M["m00"])
+        # cv2.line(img, (x[0], y[0]), (x[1], y[1]), (0, 255, 0), 5)
 
         return img
 
@@ -113,10 +160,12 @@ class PathDetector:
         # on first call initialize dominant colors
         if self.initialized == 0:
             self.initialize(img)
-        self.initialized = 1
+        # self.initialized = 1
 
         # show img with detected path and mask
         imgDet, mask_comb = self.detectPath(img)
+        cv2.drawContours(imgDet, self.contours_field_of_vision, -1, (0, 0, 255), 3)
+        mask_comb = mask_comb*self.field_of_vision_mask
         cv2.imshow("mask", mask_comb)
         cv2.imshow("path", imgDet)
         cv2.waitKey(1)
@@ -124,7 +173,13 @@ class PathDetector:
 
 def main():
     pathDet = PathDetector()
+    
+    # img = cv2.imread('Chodnik2.jpg', cv2.IMREAD_COLOR)
+    # pathDet.process_img(img)
+    # cv2.waitKey(0)
+    
     vid = cv2.VideoCapture('robotVid2.mp4')
+    
     count = 0
     while vid.isOpened():
         ret, img = vid.read()
