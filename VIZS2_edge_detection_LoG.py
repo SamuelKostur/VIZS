@@ -17,6 +17,9 @@ def conv2(f, g, shape = 'full'):
     #                       'full'  - Plna konvolucia, zvatsi obraz
     #                       'same'  - Konvolucia zachova rozmery obrazu
     #                       'valid' - Konvolucia obmedzena velkostou kernelu, zmensi obraz
+    #
+    # Vystup:
+    #       h ... Obraz po konvolucii (2D numpy.arrray)
     
     row_f, col_f = f.shape
     row_g, col_g = g.shape
@@ -61,6 +64,9 @@ def zero_crossings(arr, VAL=1):
     # Vstupy:
     #       arr ... Obraz v odtienoch sivej (2D numpy.arrray)
     #       VAL ... Vystupna hodnota pri detekovani hrany
+    #
+    # Vystup:
+    #       out ... Detekovane hrany (Binarne 2D numpy.arrray)
     
     ROW, COL = arr.shape
     out = zeros((ROW, COL))
@@ -103,6 +109,9 @@ def LoG_kernel(size, sig):
     # Vstupy:
     #       size ... Rozmery kernelu
     #       sig  ... Rozptyl Gaussovej funkcie
+    #
+    # Vystup:
+    #       f ... LoG operator (2D numpy.array)
     
     # Inicializacia
     f = zeros((size, size))
@@ -125,6 +134,9 @@ def LoG(x, y, sig):
     #       x   ... x-suradnica
     #       y   ... y-suradnica
     #       sig ... Rozptyl
+    #
+    # Vystup:
+    #       Hodnota v danom bode [x, y]
     
     return ((x**2 + y**2)/(2*sig**2) - 1)/(math.pi*sig**4) * math.exp(-(x**2 + y**2)/(2*sig**2))
 
