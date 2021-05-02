@@ -216,6 +216,7 @@ class PathDetector:
         mask_comb = cv2.morphologyEx(mask_comb, cv2.MORPH_CLOSE, kernel)
 
         mask_comb = mask_comb*self.field_of_vision.mask
+        
         return mask_comb
     
     def check_passability(self, arr):
